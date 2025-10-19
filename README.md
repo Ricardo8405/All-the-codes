@@ -1,138 +1,109 @@
-# All-the-codes
-Roborregos
+#include<AFMotor.h>
 
-###Seguidor de línea
+AF_DCMotor Motor1D(3);
+AF_DCMotor Motor2D(2);
+AF_DCMotor Motor1I(4);
+AF_DCMotor Motor2I(1);
 
-#include <AFMotor.h>
+const int sensorPins[8] = {A8, A9, A10, A11, A12, A13, A14, A15};
+int sensorValues[8];
+const int led = 31;
 
-AF_DCMotor motorD1(3);
-AF_DCMotor motorD2(2);
-AF_DCMotor motorI1(4);
-AF_DCMotor motorI2(1);
+const int THRESHOLD = 930;
 
-int values[] = {A0, A1, A2, A3, A4, A5};
-int THRESHOLD = 800;
+double Kp = 0.72;
+double Ki = 0.3; 
+double Kd = 0.24;
 
+int motorSpeed = 70; 
+
+int lastError = 0;
+long integral = 0;
+bool isBlackLine = true; 
 
 void setup() {
-  Serial.begin(9600);
-for (int i =0; i<6; i++){
-  pinMode(A0+i,INPUT);
-}
+ Serial.begin(9600);
+  pinMode(led, OUTPUT);
+  digitalWrite(led, LOW); 
 
+  Motor1D.setSpeed(0);
+  Motor2D.setSpeed(0);
+  Motor1I.setSpeed(0);
+  Motor2I.setSpeed(0);
+  
+  Motor1D.run(RELEASE);
+  Motor2D.run(RELEASE);
+  Motor1I.run(RELEASE);
+  Motor2I.run(RELEASE);
+
+  Serial.println("Iniciando PID (Logica reparada)...");
+  delay(1000); 
+  digitalWrite(led, HIGH);
 }
 
 void loop() {
-  int max = 0;
-  int line;
-  int error;
-  int I;
-  int D;
-  int P;
-  float KP = 0.7;
-  float KI = 0.3;
-  float KD = 0.2;
-  float PID;
-  int previouserror;
-  int speedD;
-  int speedI;
-  int PIDD;
-  int PIDI;
-
-for (int i = 0; i<6; i++){
-  values[i] = analogRead(A0+i);
-  if (values[i]>max){
-    max = values[i];
-    line = i+1;
+  
+  int OverThreshold = 0;
+  for (int i = 0; i < 8; i++) {
+    sensorValues[i] = analogRead(sensorPins[i]);
+    if (sensorValues[i] > THRESHOLD) {
+      OverThreshold++;
+    }
   }
-}
-if((line)==1){
-  error = -2;
-}
-if((line)==2){
-  error = -1;
-}
-if((line)==3){
-  error = 0;
-}
-if((line)==4){
-  error = 0;
-}
-if((line)==5){
-  error = 1;
-}
-if((line)==6){
-  error = 2;
-}
-I = error + I;
-D = error-previouserror;
-P = error;
-PID = map((KP*P)+(KI*I)+(KD*D),0,2.4,0,255);
-previouserror = error;
-speedD=255+PID;
-speedI=255-PID;
 
-motorD1.setSpeed(speedD);
-motorD2.setSpeed(speedD);
-motorI1.setSpeed(speedI);
-motorI2.setSpeed(speedI);
-motorD1.run(FORWARD);
-motorD2.run(FORWARD);
-motorI1.run(FORWARD);
-motorI2.run(FORWARD);
-Serial.print("Speed derecha es: ");
-Serial.println(speedD);
-Serial.print("Speed izquierda es: ");
-Serial.print(speedI);
-Serial.print("    ");
-}
+  if (OverThreshold >= 6) { 
+    isBlackLine = false; // Modo: Línea BLANCA
+  }
+  else if (OverThreshold <= 3) { 
+    isBlackLine = true; // Modo: Línea NEGRA
+  }
+
+  long sum = 0;
+  int sensorsOnLine = 0;
+  int position = 3500;
+
+  for (int i = 0; i < 8; i++) {
+    bool onLine = (isBlackLine) ? (sensorValues[i] > THRESHOLD) : (sensorValues[i] < THRESHOLD);
+    if (onLine) {
+      sum += (long)i * 1000;
+      sensorsOnLine++;
+    }
+  }
+
+  if (sensorsOnLine > 0) {
+    position = sum / sensorsOnLine;
+  } else {
+    if (lastError < -2000) { position = 0; }
+    else if (lastError > 2000) { position = 7000; }
+  }
+  
+  float error = position - 3500;
+  
+  float P = error;
+  
+  integral = integral + error;
+  
+  float D = error - lastError;
+  lastError = error;
+
+  double PID = (Kp * P) + (Ki * integral) + (Kd * D);
 
 
-## MAZE
+  float speedI = motorSpeed - PID;
+  float speedD = motorSpeed + PID;
 
-#include <NewPing.h>
-#include <AFMotor.h>
+  speedD = constrain(speedD, 0, 90);
+  speedI = constrain(speedI, 0, 90);
 
-#define Trigger_sensor_1
-#define Echo_sensor_1
+  Motor1D.setSpeed(speedD);
+  Motor2D.setSpeed(speedD);
+  Motor1I.setSpeed(speedI);
+  Motor2I.setSpeed(speedI);
 
-#define Trigger_sensor_2
-#define Echo_sensor_2
-
-#define Max 200
-
-NewPing sensor_1(Trigger_sensor_1, Echo_sensor_1, Max);
-NewPing sensor_2(Trigger_sensor_2, Echo_sensor_2, Max);
-
-AF_DCMotor motorD1(3);
-AF_DCMotor motorD2(2);
-AF_DCMotor motorI1(4);
-AF_DCMotor motorI2(1);
-
-void setup(){
-  Serial.begin(9600);
-  Serial.write(12);
-}
-void loop(){
-  delay(2000);
-  Serial.print("Distancia enfrente: ");
-  Serial.print(sensor_1.ping_cm());
-  Serial.println("cm");
-
-  delay(2000);
-  Serial.print("Distancia izquierda: ");
-  Serial.print(sensor_2.ping_cm());
-  Serial.println("cm");
-
- if sensor_1.pingcm()>2 and sensor_2.pin_cm()<=4 {
-  motorD1.run(FORWARD);
-  motorD2.run(FORWARD);
-  motorI1.run(FORWARD);
-  motorI2.run(FORWARD);
- }
-
-}
-
+  Motor1D.run(FORWARD);
+  Motor2D.run(FORWARD);
+  Motor1I.run(FORWARD);
+  Motor2I.run(FORWARD);
 
 
 
