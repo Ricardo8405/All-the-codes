@@ -105,8 +105,9 @@ void loop() {
   Motor1I.run(FORWARD);
   Motor2I.run(FORWARD);
 
-
-
-
-
-jfEWONFOIWNVOISNVOSOVDSBVBOSDVIOSNDVIOSNOVDSN
+//  Serial.print(isBlackLine ? "Modo: NEGRA" : "Modo: BLANCA");
+//  Serial.print("\t Error: "); Serial.print(error);
+//  Serial.print("\t PID: "); Serial.print(PID);
+//  Serial.print("\t Spd_I: "); Serial.print(speedI);
+//  Serial.print("\t Spd_D: "); Serial.println(speedD);
+}
